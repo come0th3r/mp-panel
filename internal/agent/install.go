@@ -26,13 +26,16 @@ func (a *Agent) download(ctx context.Context, dir, target string, artifact model
 	}
 	client := a.downloadClient
 	limit := int64(2 << 30)
-	if artifact.ID != "" {
+	upload := artifact.ID != ""
+	if upload {
 		panel, _ := url.Parse(a.cfg.PanelURL)
 		if !identifier.MatchString(artifact.ID) || u.Host != panel.Host || u.Path != "/agent/v1/artifacts/"+artifact.ID || u.RawQuery != "" {
 			return errors.New("upload artifact must use the authenticated panel artifact endpoint")
 		}
-		client = &http.Client{Transport: a.client.Transport, Timeout: 30 * time.Minute, CheckRedirect: a.client.CheckRedirect}
-		limit = 256 << 20
+		// Authenticated uploads are streamed to disk. Their recorded size and
+		// checksum define the accepted body; command cancellation sets lifetime.
+		client = &http.Client{Transport: a.client.Transport, CheckRedirect: a.client.CheckRedirect}
+		limit = artifact.Size
 	}
 	if artifact.Size < 0 || artifact.Size > limit {
 		return errors.New("artifact size exceeds download limit")
@@ -76,9 +79,30 @@ func (a *Agent) download(ctx context.Context, dir, target string, artifact model
 	defer os.Remove(tmp)
 	sha256hash := sha256.New()
 	sha1hash := sha1.New()
-	n, err := io.Copy(io.MultiWriter(f, sha256hash, sha1hash), io.LimitReader(resp.Body, limit+1))
-	if err == nil && n > limit {
-		err = errors.New("artifact exceeds size limit")
+	writer := io.MultiWriter(f, sha256hash, sha1hash)
+	var n int64
+	if upload {
+		// CopyN avoids size+1 overflow for int64 metadata, and the trailing
+		// probe rejects a body larger than the verified upload without storing it.
+		n, err = io.CopyN(writer, resp.Body, artifact.Size)
+		if errors.Is(err, io.EOF) {
+			err = errors.New("artifact size mismatch")
+		}
+		if err == nil {
+			var probe [1]byte
+			var extra int
+			extra, err = io.ReadFull(resp.Body, probe[:])
+			if extra != 0 {
+				err = errors.New("artifact size mismatch")
+			} else if errors.Is(err, io.EOF) {
+				err = nil
+			}
+		}
+	} else {
+		n, err = io.Copy(writer, io.LimitReader(resp.Body, limit+1))
+		if err == nil && n > limit {
+			err = errors.New("artifact exceeds size limit")
+		}
 	}
 	if err == nil && artifact.Size > 0 && n != artifact.Size {
 		err = errors.New("artifact size mismatch")

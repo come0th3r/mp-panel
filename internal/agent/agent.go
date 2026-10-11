@@ -161,7 +161,12 @@ func (a *Agent) request(ctx context.Context, method, path string, in, out any) (
 		return resp.StatusCode, fmt.Errorf("panel HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
 	}
 	if out != nil && resp.StatusCode != http.StatusNoContent {
-		err = json.NewDecoder(io.LimitReader(resp.Body, 16<<20)).Decode(out)
+		var reader io.Reader = io.LimitReader(resp.Body, 16<<20)
+		if method == http.MethodGet && path == "/agent/v1/commands?wait=20" {
+			// A folder upload can contain a large authenticated command manifest.
+			reader = resp.Body
+		}
+		err = json.NewDecoder(reader).Decode(out)
 	}
 	return resp.StatusCode, err
 }

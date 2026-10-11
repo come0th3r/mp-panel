@@ -30,22 +30,32 @@ type storedUpload struct {
 }
 
 func (a *API) upload(w http.ResponseWriter, r *http.Request) {
-	const max = 256 << 20
-	r.Body = http.MaxBytesReader(w, r.Body, max+(1<<20))
-	if e := r.ParseMultipartForm(8 << 20); e != nil {
-		fail(w, 400, "Не удалось прочитать файл. Лимит загрузки: 256 МиБ")
-		return
-	}
-	if r.MultipartForm != nil {
-		defer r.MultipartForm.RemoveAll()
-	}
-	src, header, e := r.FormFile("file")
+	reader, e := r.MultipartReader()
 	if e != nil {
-		fail(w, 400, "Выберите файл для загрузки")
+		fail(w, 400, "Не удалось прочитать загрузку")
 		return
+	}
+	var src io.ReadCloser
+	var filename string
+	for {
+		part, err := reader.NextPart()
+		if err != nil {
+			fail(w, 400, "Выберите файл для загрузки")
+			return
+		}
+		if part.FormName() == "file" && part.FileName() != "" {
+			src, filename = part, part.FileName()
+			break
+		}
+		if _, err = io.Copy(io.Discard, part); err != nil {
+			part.Close()
+			fail(w, 400, "Загрузка не завершена")
+			return
+		}
+		part.Close()
 	}
 	defer src.Close()
-	name := path.Base(strings.ReplaceAll(header.Filename, "\\", "/"))
+	name := path.Base(strings.ReplaceAll(filename, "\\", "/"))
 	if name == "." || name == "/" || len(name) > 180 || strings.ContainsAny(name, "\x00\r\n") {
 		fail(w, 400, "Недопустимое имя файла")
 		return
@@ -63,7 +73,25 @@ func (a *API) upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h := sha256.New()
-	size, e := io.Copy(io.MultiWriter(dst, h), io.LimitReader(src, max+1))
+	size, e := io.Copy(io.MultiWriter(dst, h), src)
+	// Verify the complete multipart envelope before registering the file.
+	for e == nil {
+		part, err := reader.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			e = err
+			break
+		}
+		if part.FormName() == "file" {
+			e = fmt.Errorf("one file per upload request")
+			part.Close()
+			break
+		}
+		_, e = io.Copy(io.Discard, part)
+		part.Close()
+	}
 	if e == nil {
 		e = dst.Sync()
 	}
@@ -71,9 +99,9 @@ func (a *API) upload(w http.ResponseWriter, r *http.Request) {
 	if e == nil {
 		e = closeErr
 	}
-	if e != nil || size > max {
+	if e != nil {
 		os.Remove(dstPath)
-		fail(w, 400, "Загрузка не завершена или файл превышает 256 МиБ")
+		fail(w, 400, "Загрузка не завершена. Проверьте соединение и свободное место на диске")
 		return
 	}
 	u := storedUpload{ID: id, Name: name, Size: size, SHA256: hex.EncodeToString(h.Sum(nil)), Path: dstPath, OwnerID: actor(r).ID, CreatedAt: now()}
@@ -313,7 +341,7 @@ func (a *API) queueUpload(w http.ResponseWriter, r *http.Request, s model.Server
 		return
 	}
 	j := newJob(s.NodeID, s.ID, "Загрузка файла на игровой хост")
-	cmd := model.Command{ID: security.ID(), NodeID: s.NodeID, ServerID: s.ID, JobID: j.ID, Type: "file.upload", Payload: store.Marshal(map[string]any{"path": target, "artifact": asset}), Deadline: time.Now().Add(20 * time.Minute).UTC().Format(time.RFC3339)}
+	cmd := model.Command{ID: security.ID(), NodeID: s.NodeID, ServerID: s.ID, JobID: j.ID, Type: "file.upload", Payload: store.Marshal(map[string]any{"path": target, "artifact": asset}), Deadline: time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)}
 	if e = a.enqueue(r, cmd, j, nil, true, request); e != nil {
 		fail(w, 409, e.Error())
 		return

@@ -11,8 +11,7 @@ type FileContent = { path: string; content: string; revision: string };
 type Clipboard = { paths: string[]; mode: 'copy' | 'move' };
 type UploadItem = { file: File; name: string };
 type Form = 'directory' | 'upload' | 'move' | 'extract' | 'rename' | null;
-const MAX_FILES = 100;
-const MAX_BYTES = 256 * 1024 * 1024;
+const MAX_SELECTION = 100;
 const DRAG_TYPE = 'application/x-mp-files';
 const join = (directory: string, name: string) => directory ? `${directory}/${name}` : name;
 const fileName = (path: string) => path.split('/').pop() || path;
@@ -26,7 +25,6 @@ function FileTool({ label, children, disabled, onClick, accent = false }: { labe
 async function droppedFiles(items: DataTransferItemList, fallback: FileList): Promise<UploadItem[]> {
   const result: UploadItem[] = [];
   const add = (file: File, name: string) => {
-    if (result.length >= MAX_FILES) throw new Error(`Можно загрузить до ${MAX_FILES} файлов за один раз. Разделите загрузку на несколько частей.`);
     result.push({ file, name });
   };
   const walk = async (entry: FileSystemEntry, parent = ''): Promise<void> => {
@@ -139,21 +137,19 @@ export function FileManager({ server, canWrite, onJob }: { server: Server; canWr
     }
     setSelection(current => {
       const next = checked ? [...new Set([...current, ...affected])] : current.filter(item => !affected.includes(item));
-      if (next.length > MAX_FILES) { setFeedback({ error: `Можно выделить до ${MAX_FILES} объектов за один раз.`, success: '' }); return current; }
+      if (next.length > MAX_SELECTION) { setFeedback({ error: `Можно выделить до ${MAX_SELECTION} объектов за один раз.`, success: '' }); return current; }
       return next;
     });
     anchor.current = entry.path;
   };
   const selectAll = () => {
     if (allSelected) setSelection([]);
-    else if (entries.length > MAX_FILES) setFeedback({ error: `В каталоге больше ${MAX_FILES} объектов. Выберите нужные по отдельности.`, success: '' });
+    else if (entries.length > MAX_SELECTION) setFeedback({ error: `В каталоге больше ${MAX_SELECTION} объектов. Выберите нужные по отдельности.`, success: '' });
     else setSelection(entries.map(entry => entry.path));
   };
   const receiveUploads = (items: UploadItem[]) => {
     if (!writable) return;
     if (!items.length) { setFeedback({ error: 'В выбранном каталоге нет файлов для загрузки. Пустые каталоги можно создать кнопкой «Новый каталог».', success: '' }); return; }
-    if (items.length > MAX_FILES) { setFeedback({ error: `Можно загрузить до ${MAX_FILES} файлов за один раз.`, success: '' }); return; }
-    if (items.some(item => item.file.size > MAX_BYTES)) { setFeedback({ error: 'Размер каждого файла не должен превышать 256 МиБ.', success: '' }); return; }
     if (new Set(items.map(item => item.name)).size !== items.length) { setFeedback({ error: 'В загрузке есть файлы с одинаковым именем. Измените имена или загрузите их в разные каталоги.', success: '' }); return; }
     setUploads(items); setForm('upload'); setFeedback({ error: '', success: '' });
   };
@@ -180,7 +176,7 @@ export function FileManager({ server, canWrite, onJob }: { server: Server; canWr
     if (event.dataTransfer.types.includes(DRAG_TYPE)) {
       try {
         const payload = JSON.parse(event.dataTransfer.getData(DRAG_TYPE)) as { server_id: string; paths: string[] };
-        if (payload.server_id !== server.id || !Array.isArray(payload.paths) || payload.paths.some(item => typeof item !== 'string') || payload.paths.length > MAX_FILES) throw new Error('Перемещение доступно только внутри текущего сервера.');
+        if (payload.server_id !== server.id || !Array.isArray(payload.paths) || payload.paths.some(item => typeof item !== 'string') || payload.paths.length > MAX_SELECTION) throw new Error('Перемещение доступно только внутри текущего сервера.');
         transfer(payload.paths, target, event.ctrlKey || event.metaKey ? 'copy' : 'move');
       } catch (error) { setFeedback({ error: message(error), success: '' }); }
     } else {
@@ -240,7 +236,7 @@ export function FileManager({ server, canWrite, onJob }: { server: Server; canWr
         {dragging && <div className="file-manager-drop-overlay"><UploadIcon /><strong>Отпустите, чтобы добавить файлы</strong><span>Каталог: /{dropFolder || path || ''}</span></div>}
         {readingDrop ? <Loading /> : files.loading ? <Loading /> : files.data === undefined ? <Unavailable onRetry={files.refresh} /> : entries.length ? <div className="table-wrap file-manager-table"><Table.Root><Table.Header><Table.Row><Table.ColumnHeaderCell className="file-manager-check"><Checkbox aria-label="Выделить все файлы и каталоги" checked={allSelected ? true : selection.length ? 'indeterminate' : false} onCheckedChange={selectAll} /></Table.ColumnHeaderCell><Table.ColumnHeaderCell>Название</Table.ColumnHeaderCell><Table.ColumnHeaderCell className="file-manager-size">Размер</Table.ColumnHeaderCell><Table.ColumnHeaderCell className="file-manager-date">Изменен</Table.ColumnHeaderCell></Table.Row></Table.Header><Table.Body>{entries.map(file => <Table.Row key={file.path} data-selected={selection.includes(file.path) || undefined} data-cut={clipboard?.mode === 'move' && clipboard.paths.includes(file.path) || undefined} data-drop-target={dropFolder === file.path || undefined} draggable={writable} onDragStart={event => { if (!writable) { event.preventDefault(); return; } const paths = selection.includes(file.path) ? selection : [file.path]; event.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ server_id: server.id, paths })); event.dataTransfer.effectAllowed = 'copyMove'; }} onDragEnd={() => setDropFolder('')} onDragOver={event => { if (file.is_dir && writable && (event.dataTransfer.types.includes(DRAG_TYPE) || event.dataTransfer.types.includes('Files'))) { event.preventDefault(); event.stopPropagation(); setDropFolder(file.path); event.dataTransfer.dropEffect = event.ctrlKey || event.metaKey || event.dataTransfer.types.includes('Files') ? 'copy' : 'move'; } }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) setDropFolder(''); }} onDrop={event => { if (file.is_dir) void drop(event, file.path); }}><Table.Cell className="file-manager-check"><Checkbox aria-label={`Выбрать ${file.name}`} checked={selection.includes(file.path)} onClick={event => { if (event.shiftKey) { event.preventDefault(); toggle(file, !selection.includes(file.path), true); } }} onCheckedChange={checked => toggle(file, checked === true)} /></Table.Cell><Table.RowHeaderCell><button className="file-link" disabled={busy} onClick={() => open(file)}>{file.is_dir ? <Folder size={15} strokeWidth={1.5} /> : <FileIcon />}<span>{file.name}</span></button></Table.RowHeaderCell><Table.Cell className="file-manager-size">{file.is_dir ? 'Каталог' : bytes(file.size)}</Table.Cell><Table.Cell className="file-manager-date">{date(file.modified)}</Table.Cell></Table.Row>)}</Table.Body></Table.Root></div> : <Empty title="Каталог пуст">Добавьте файлы кнопкой «Загрузить файлы», перетащите их сюда или создайте новый каталог.</Empty>}
       </div>
-      <small className="file-manager-help">Перетащите файлы или папки сюда. До 100 файлов, каждый до 256 МиБ. Shift + выбор выделяет диапазон. Ctrl/Cmd + C, X, V: копирование, вырезание, вставка. Перетаскивание в каталог перемещает файлы; с Ctrl/Cmd копирует. ZIP и RAR распаковываются через кнопку «Распаковать».</small>
+      <small className="file-manager-help">Перетащите файлы или папки сюда. Shift + выбор выделяет диапазон. Ctrl/Cmd + C, X, V: копирование, вырезание, вставка. Перетаскивание в каталог перемещает файлы; с Ctrl/Cmd копирует. ZIP и RAR распаковываются через кнопку «Распаковать».</small>
     </>}
   </section>;
 }

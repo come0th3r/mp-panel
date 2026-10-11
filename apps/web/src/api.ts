@@ -29,7 +29,6 @@ export async function api<T>(path: string, method = 'GET', body?: unknown, signa
   return value as T;
 }
 export async function upload(file: File, onProgress?: (loaded: number) => void): Promise<Upload> {
-  if (file.size > 256 * 1024 * 1024) throw new Error('Файл превышает лимит 256 МиБ.');
   const data = new FormData(); data.append('file', file);
   if (!onProgress) return api<Upload>('/uploads', 'POST', data);
   return new Promise((resolve, reject) => {

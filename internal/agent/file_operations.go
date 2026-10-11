@@ -14,9 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
-	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -79,25 +77,31 @@ func cleanSelection(paths []string) ([]string, error) {
 	if len(paths) < 1 || len(paths) > fileBatchLimit {
 		return nil, fmt.Errorf("select between 1 and %d paths", fileBatchLimit)
 	}
+	return cleanUploadSelection(paths)
+}
+
+func cleanUploadSelection(paths []string) ([]string, error) {
+	if len(paths) == 0 {
+		return nil, errors.New("select at least one path")
+	}
 	clean := make([]string, len(paths))
+	selected := make(map[string]struct{}, len(paths))
 	for i, p := range paths {
 		var err error
 		clean[i], err = operationPath(p, false)
 		if err != nil {
 			return nil, err
 		}
-	}
-	sorted := append([]string(nil), clean...)
-	sort.Strings(sorted)
-	for i := 1; i < len(sorted); i++ {
-		if sorted[i] == sorted[i-1] || strings.HasPrefix(sorted[i], sorted[i-1]+"/") {
-			return nil, errors.New("selection contains duplicate or overlapping paths")
+		if _, exists := selected[clean[i]]; exists {
+			return nil, errors.New("selection contains duplicate paths")
 		}
+		selected[clean[i]] = struct{}{}
 	}
-	// Adjacent lexical ordering alone does not catch a/b, a-b, a/b/c.
-	for i, a := range clean {
-		for j, b := range clean {
-			if i != j && strings.HasPrefix(b, a+"/") {
+	// Check each ancestor directly so large uploads do not require a quadratic
+	// comparison of every pair of paths.
+	for _, name := range clean {
+		for parent := path.Dir(name); parent != "."; parent = path.Dir(parent) {
+			if _, exists := selected[parent]; exists {
 				return nil, errors.New("selection contains overlapping paths")
 			}
 		}
@@ -474,6 +478,7 @@ type extractionStage struct {
 	known    map[string]bool
 	expanded int64
 	headers  int
+	upload   bool
 }
 
 func archivePath(name string) (string, error) {
@@ -493,7 +498,7 @@ func (s *extractionStage) directory(name string) error {
 			}
 			continue
 		}
-		if len(s.entries) >= archiveEntryLimit {
+		if !s.upload && len(s.entries) >= archiveEntryLimit {
 			return errors.New("archive exceeds 10000 extracted entries")
 		}
 		if err := s.root.Mkdir(p, 0750); err != nil {
@@ -804,7 +809,7 @@ func (a *Agent) downloadEmptyFile(ctx context.Context, dir, target string, artif
 	if err != nil || u.Scheme != "https" || u.User != nil || !identifier.MatchString(artifact.ID) || u.Host != panel.Host || u.Path != "/agent/v1/artifacts/"+artifact.ID || u.RawQuery != "" {
 		return errors.New("invalid upload artifact endpoint")
 	}
-	client := &http.Client{Transport: a.client.Transport, Timeout: 30 * time.Minute, CheckRedirect: a.client.CheckRedirect}
+	client := &http.Client{Transport: a.client.Transport, CheckRedirect: a.client.CheckRedirect}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return err
@@ -834,7 +839,7 @@ func (a *Agent) uploadFiles(ctx context.Context, dir string, p fileUploadPayload
 	for i, f := range p.Files {
 		paths[i] = f.Path
 	}
-	selection, err := cleanSelection(paths)
+	selection, err := cleanUploadSelection(paths)
 	if err != nil {
 		return nil, err
 	}
@@ -844,8 +849,8 @@ func (a *Agent) uploadFiles(ctx context.Context, dir string, p fileUploadPayload
 	}
 	defer r.Close()
 	for i, f := range p.Files {
-		if !identifier.MatchString(f.Artifact.ID) || len(f.Artifact.SHA256) != 64 || f.Artifact.Size < 0 || f.Artifact.Size > 256<<20 {
-			return nil, errors.New("upload needs a verified panel artifact, at most 256 MiB per file")
+		if !identifier.MatchString(f.Artifact.ID) || len(f.Artifact.SHA256) != 64 || f.Artifact.Size < 0 {
+			return nil, errors.New("upload needs a verified panel artifact")
 		}
 		if _, err = hex.DecodeString(f.Artifact.SHA256); err != nil {
 			return nil, errors.New("invalid artifact SHA256")
@@ -865,7 +870,7 @@ func (a *Agent) uploadFiles(ctx context.Context, dir string, p fileUploadPayload
 	}
 	defer stage.Close()
 	defer r.RemoveAll(stageName)
-	s := &extractionStage{root: stage, known: map[string]bool{}}
+	s := &extractionStage{root: stage, known: map[string]bool{}, upload: true}
 	for i, f := range p.Files {
 		if err = ctx.Err(); err != nil {
 			return nil, err
@@ -895,5 +900,5 @@ func (a *Agent) uploadFiles(ctx context.Context, dir string, p fileUploadPayload
 		return nil, err
 	}
 	*logs = append(*logs, fmt.Sprintf("Uploaded %d files", len(selection)))
-	return map[string]any{"paths": selection}, nil
+	return map[string]any{"files": len(selection)}, nil
 }

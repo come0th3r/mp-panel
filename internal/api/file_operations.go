@@ -42,12 +42,26 @@ func validateFileSelection(paths []string) error {
 	if len(paths) == 0 || len(paths) > fileBatchLimit {
 		return fmt.Errorf("Выберите от 1 до %d файлов или каталогов", fileBatchLimit)
 	}
-	for i, value := range paths {
+	return validateUploadPaths(paths)
+}
+
+func validateUploadPaths(paths []string) error {
+	if len(paths) == 0 {
+		return fmt.Errorf("Выберите файлы для загрузки")
+	}
+	seen := make(map[string]bool, len(paths))
+	for _, value := range paths {
 		if err := validateFilePath(value, false); err != nil {
 			return err
 		}
-		for _, previous := range paths[:i] {
-			if value == previous || strings.HasPrefix(value, previous+"/") || strings.HasPrefix(previous, value+"/") {
+		if seen[value] {
+			return fmt.Errorf("Не выбирайте один путь дважды или каталог вместе с его содержимым")
+		}
+		seen[value] = true
+	}
+	for _, value := range paths {
+		for parent := path.Dir(value); parent != "."; parent = path.Dir(parent) {
+			if seen[parent] {
 				return fmt.Errorf("Не выбирайте один путь дважды или каталог вместе с его содержимым")
 			}
 		}
@@ -77,6 +91,9 @@ func (a *API) queueFileOperation(w http.ResponseWriter, r *http.Request, s model
 		ID: security.ID(), NodeID: s.NodeID, ServerID: s.ID, JobID: j.ID,
 		Type: kind, Payload: store.Marshal(payload),
 		Deadline: time.Now().Add(20 * time.Minute).UTC().Format(time.RFC3339),
+	}
+	if kind == "file.upload_batch" {
+		cmd.Deadline = time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
 	}
 	if err := a.enqueue(r, cmd, j, nil, true, request); err != nil {
 		fail(w, http.StatusConflict, err.Error())
@@ -178,7 +195,7 @@ func (a *API) uploadFiles(w http.ResponseWriter, r *http.Request) {
 			UploadID string `json:"upload_id"`
 		} `json:"files"`
 	}
-	if !decode(w, r, &p) || a.replay(w, r, p) {
+	if !decodeLimit(w, r, &p, 0) || a.replay(w, r, p) {
 		return
 	}
 	paths := make([]string, len(p.Files))
@@ -189,7 +206,7 @@ func (a *API) uploadFiles(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := validateFileSelection(paths); err != nil {
+	if err := validateUploadPaths(paths); err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}

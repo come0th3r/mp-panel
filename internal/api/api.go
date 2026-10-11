@@ -70,7 +70,9 @@ func decodeAgent(w http.ResponseWriter, r *http.Request, v any) bool {
 	return decodeLimit(w, r, v, 16<<20)
 }
 func decodeLimit(w http.ResponseWriter, r *http.Request, v any, limit int64) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	if limit > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
+	}
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields()
 	if e := d.Decode(v); e != nil {
