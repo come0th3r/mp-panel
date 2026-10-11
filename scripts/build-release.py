@@ -31,7 +31,7 @@ with tarfile.open(fileobj=io.BytesIO(archive), mode='r:') as source:
             raise SystemExit('Unexpected source archive entry: ' + entry.name)
         if path.name == '.env' or path.suffix in {'.key', '.pem', '.p12', '.pfx'}:
             raise SystemExit('Secret file in source archive: ' + entry.name)
-        if path.parts[0] == 'docs' and entry.isfile() and entry.name not in {'docs/DEPLOYMENT.md', 'docs/GATEWAY.md', 'docs/API_CONTRACT.md'}:
+        if path.parts[0] == 'docs' and entry.isfile() and entry.name not in {'docs/DEPLOYMENT.md', 'docs/GATEWAY.md', 'docs/API_CONTRACT.md', 'docs/GLOSSARY.md'}:
             raise SystemExit('Unexpected documentation file: ' + entry.name)
     installers = {name: source.extractfile('deploy/' + name).read() for name in ('setup.sh', 'setup.ps1')}
 
