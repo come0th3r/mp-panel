@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 umask 077
 
-VERSION='v0.1.0'
+MP_RELEASE_VERSION='v0.1.1'
 REPOSITORY="${MP_REPOSITORY:-come0th3r/mp-panel}"
 DESTINATION='/opt/mp-panel'
 SOURCE=''
@@ -38,7 +38,7 @@ MP Panel: установка на Debian или Ubuntu (x86_64).
   sudo bash setup.sh --yes --contact admin@example.com --public-url http://192.168.1.10:8080 --agent-url https://192.168.1.10:8443
 
 Параметры:
-  --version TAG       Версия релиза, по умолчанию v0.1.0.
+  --version TAG       Версия релиза, по умолчанию v0.1.1.
   --repository NAME   Репозиторий GitHub в формате owner/name.
   --source PATH       Каталог исходников или архив .tar.gz вместо скачивания.
   --directory PATH    Каталог установки, по умолчанию /opt/mp-panel.
@@ -68,7 +68,7 @@ while (( $# )); do
     --version|--repository|--source|--directory|--contact|--public-url|--agent-url|--web-bind|--web-port|--agent-port|--gateway|--game-domain|--gateway-port|--npm-network)
       (( $# >= 2 )) || fail "Для $1 нужно значение."
       case "$1" in
-        --version) VERSION=$2 ;; --repository) REPOSITORY=$2 ;;
+        --version) MP_RELEASE_VERSION=$2 ;; --repository) REPOSITORY=$2 ;;
         --source) SOURCE=$2 ;; --directory) DESTINATION=$2 ;;
         --contact) CONTACT=$2 ;; --public-url) PUBLIC_URL=$2 ;;
         --agent-url) AGENT_URL=$2 ;; --web-bind) WEB_BIND=$2 ;;
@@ -84,11 +84,11 @@ done
 [[ $EUID -eq 0 ]] || fail 'Запустите установщик через sudo bash setup.sh.'
 [[ "$(uname -m)" == x86_64 ]] || fail 'Этот релиз поддерживает только x86_64 (amd64).'
 [[ -r /etc/os-release ]] || fail 'Не удалось определить Linux-дистрибутив.'
-# os-release is supplied by the installed operating system.
-. /etc/os-release
-[[ "$ID" == debian || "$ID" == ubuntu ]] || fail 'Поддерживаются Debian и Ubuntu.'
+# Keep operating-system metadata separate from installer settings.
+MP_OS_ID=$( . /etc/os-release; printf '%s' "${ID:-}" )
+[[ "$MP_OS_ID" == debian || "$MP_OS_ID" == ubuntu ]] || fail 'Поддерживаются Debian и Ubuntu.'
 [[ "$REPOSITORY" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || fail 'Неверный репозиторий GitHub.'
-[[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][A-Za-z0-9.-]+)?$ ]] || fail 'Неверная версия релиза.'
+[[ "$MP_RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][A-Za-z0-9.-]+)?$ ]] || fail 'Неверная версия релиза.'
 
 [[ "$DESTINATION" == /* && "$DESTINATION" != *$'\n'* && "$DESTINATION" != *'//'* && "$DESTINATION" != *'/../'* && "$DESTINATION" != */.. ]] || fail 'Нужен абсолютный путь без переходов .. и повторных / .'
 [[ "$DESTINATION" == / ]] || DESTINATION=${DESTINATION%/}
@@ -129,7 +129,7 @@ if [[ -f "$DESTINATION/.env" ]]; then
   EXISTING_ENV=true
   printf 'Найдена установленная панель в %s. Настройки .env будут сохранены.\n' "$DESTINATION"
 else
-  detected_ip=$(hostname -I 2>/dev/null | awk '{for (i=1; i<=NF; i++) if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {print $i; exit}}')
+  detected_ip=$(hostname -I 2>/dev/null | awk '{for (i=1; i<=NF; i++) if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {print $i; exit}}') || detected_ip=''
   detected_ip=${detected_ip:-127.0.0.1}
   [[ -n "$PUBLIC_URL" ]] || prompt PUBLIC_URL 'Адрес панели' "http://$detected_ip:$WEB_PORT"
   [[ -n "$AGENT_URL" ]] || prompt AGENT_URL 'HTTPS-адрес агентов, доступный игровым хостам' "https://$detected_ip:$AGENT_PORT"
@@ -159,7 +159,7 @@ else
   [[ -z "$NPM_NETWORK" || "$NPM_NETWORK" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || fail 'Неверное имя Docker-сети NPM.'
 fi
 
-printf 'Устанавливаем MP Panel %s в %s.\n' "$VERSION" "$DESTINATION"
+printf 'Устанавливаем MP Panel %s в %s.\n' "$MP_RELEASE_VERSION" "$DESTINATION"
 if ! command -v curl >/dev/null 2>&1 || ! command -v openssl >/dev/null 2>&1; then
   apt-get update
   apt-get install -y ca-certificates curl openssl
@@ -191,9 +191,9 @@ if [[ -z "$SOURCE" && -f "$SCRIPT_DIRECTORY/../compose.yaml" && -f "$SCRIPT_DIRE
   SOURCE=$(cd -- "$SCRIPT_DIRECTORY/.." && pwd -P)
 fi
 if [[ -z "$SOURCE" ]]; then
-  asset="mp-panel-$VERSION.tar.gz"
-  release_url="https://github.com/$REPOSITORY/releases/download/$VERSION"
-  printf 'Скачиваем исходники релиза %s из %s.\n' "$VERSION" "$REPOSITORY"
+  asset="mp-panel-$MP_RELEASE_VERSION.tar.gz"
+  release_url="https://github.com/$REPOSITORY/releases/download/$MP_RELEASE_VERSION"
+  printf 'Скачиваем исходники релиза %s из %s.\n' "$MP_RELEASE_VERSION" "$REPOSITORY"
   curl --proto '=https' --tlsv1.2 -fSL --retry 3 "$release_url/$asset" -o "$TEMP_DIRECTORY/$asset"
   curl --proto '=https' --tlsv1.2 -fsSL --retry 3 "$release_url/SHA256SUMS" -o "$TEMP_DIRECTORY/SHA256SUMS"
   checksum=$(awk -v name="$asset" '$2 == name || $2 == "*" name {print $1}' "$TEMP_DIRECTORY/SHA256SUMS")
@@ -255,7 +255,7 @@ if ! $EXISTING_ENV; then
 POSTGRES_PASSWORD=$database_password
 MP_PUBLIC_URL=$PUBLIC_URL
 MP_AGENT_PUBLIC_URL=$AGENT_URL
-MP_DOWNLOAD_USER_AGENT=MP-Panel/${VERSION#v} ($CONTACT)
+MP_DOWNLOAD_USER_AGENT=MP-Panel/${MP_RELEASE_VERSION#v} ($CONTACT)
 MP_COOKIE_SECURE=$cookie_secure
 MP_WEB_BIND=$WEB_BIND
 MP_WEB_PORT=$WEB_PORT
