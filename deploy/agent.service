@@ -1,0 +1,25 @@
+[Unit]
+Description=MP Minecraft host agent
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/mp-agent --config /etc/mp-agent/config.json
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=90
+KillMode=process
+UMask=0077
+Environment=HOME=/var/lib/mp-agent
+Environment=DOCKER_CONFIG=/var/lib/mp-agent/docker
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/mp-agent /run/docker.sock
+
+[Install]
+WantedBy=multi-user.target

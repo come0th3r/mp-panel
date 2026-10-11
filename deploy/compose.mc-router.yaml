@@ -1,0 +1,35 @@
+# Optional: docker compose -f compose.yaml -f deploy/compose.mc-router.yaml up -d --build --wait
+# REST API remains private to Compose. MP reconciles its PostgreSQL routes every 15s.
+services:
+  api:
+    environment:
+      MP_MC_ROUTER_API_URL: http://mc-router:8080
+      MP_GAME_DOMAIN: ${MP_GAME_DOMAIN:?Set the game DNS zone pointing to the public gateway}
+    depends_on:
+      mc-router:
+        condition: service_started
+  mc-router-init:
+    image: busybox:1.37.0
+    restart: "no"
+    volumes:
+      - mc-router-config:/router
+    command: ["sh", "-c", "if [ ! -e /router/routes.json ]; then printf '%s' '{\"mappings\":{}}' > /router/routes.json; fi; chown -R 65532:65532 /router; chmod 750 /router; chmod 640 /router/routes.json"]
+  mc-router:
+    # Official v1.47.2 release; multi-platform OCI digest verified via GHCR.
+    image: ghcr.io/itzg/mc-router:1.47.2@sha256:64ae69eaa7a6800a79bbf962f027f4020878efa25183359115bc7f6ee569c36e
+    restart: unless-stopped
+    init: true
+    stop_signal: SIGINT
+    user: "65532:65532"
+    environment:
+      API_BINDING: 0.0.0.0:8080
+      ROUTES_CONFIG: /router/routes.json
+    ports:
+      - "${MP_GATEWAY_BIND:-0.0.0.0}:${MP_GATEWAY_PORT:-25565}:25565"
+    volumes:
+      - mc-router-config:/router
+    depends_on:
+      mc-router-init:
+        condition: service_completed_successfully
+volumes:
+  mc-router-config:

@@ -1,0 +1,34 @@
+# Optional: docker compose -f compose.yaml -f deploy/compose.gate.yaml up -d --build --wait
+# Gate API is available only inside the Compose network and has no published port.
+services:
+  api:
+    environment:
+      MP_GATE_API_URL: http://gate:8080
+      MP_GAME_DOMAIN: ${MP_GAME_DOMAIN:?Set the game DNS zone pointing to the public gateway}
+    depends_on:
+      gate:
+        condition: service_started
+  gate-init:
+    image: busybox:1.37.0
+    restart: "no"
+    volumes:
+      - gate-config:/gate
+      - ./deploy/gate/config.yml:/seed/config.yml:ro
+    command: ["sh", "-c", "if [ ! -e /gate/config.yml ]; then cp /seed/config.yml /gate/config.yml; fi; chmod 755 /gate; chmod 644 /gate/config.yml"]
+  gate:
+    # Official released v0.74.27 image; digest verified via GHCR manifest metadata.
+    image: ghcr.io/minekube/gate:v0.74.27@sha256:4195ba3303bb627c1fad930e3b286e0e001ba678c989493e9c959097f26fcd4e
+    restart: unless-stopped
+    init: true
+    command: ["--config", "/gate-config/config.yml"]
+    ports:
+      - "${MP_GATEWAY_BIND:-0.0.0.0}:${MP_GATEWAY_PORT:-25565}:25565"
+    volumes:
+      - gate-config:/gate-config
+      - gate-cache:/var/cache/gate
+    depends_on:
+      gate-init:
+        condition: service_completed_successfully
+volumes:
+  gate-config:
+  gate-cache:

@@ -1,0 +1,13 @@
+# Use with: docker compose -f compose.yaml -f deploy/compose.npm.yaml up -d --build
+# In NPM select HTTP upstream mp-panel:8080 with Websockets Support enabled.
+services:
+  api:
+    networks:
+      default:
+      npm:
+        aliases:
+          - mp-panel
+networks:
+  npm:
+    external: true
+    name: ${MP_NPM_NETWORK:?Set the existing Nginx Proxy Manager Docker network name}

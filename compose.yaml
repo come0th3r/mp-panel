@@ -1,0 +1,62 @@
+name: mp-panel
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mp
+      POSTGRES_USER: mp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong hexadecimal POSTGRES_PASSWORD in .env}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mp -d mp"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  api:
+    image: mp-panel:local
+    build: .
+    restart: unless-stopped
+    init: true
+    environment: &panel-env
+      DATABASE_URL: postgres://mp:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/mp?sslmode=disable
+      MP_LISTEN: :8080
+      MP_AGENT_LISTEN: :8443
+      MP_PUBLIC_URL: ${MP_PUBLIC_URL:?Set the public HTTPS panel URL}
+      MP_AGENT_PUBLIC_URL: ${MP_AGENT_PUBLIC_URL:?Set the HTTPS agent URL reachable by game hosts}
+      MP_COOKIE_SECURE: ${MP_COOKIE_SECURE:-true}
+      MP_DOWNLOAD_USER_AGENT: ${MP_DOWNLOAD_USER_AGENT:?Set a product User-Agent with your real contact URL or email}
+    ports:
+      - "${MP_WEB_BIND:-127.0.0.1}:${MP_WEB_PORT:-8080}:8080"
+      - "${MP_AGENT_BIND:-0.0.0.0}:${MP_AGENT_PORT:-8443}:8443"
+    volumes:
+      - panel-data:/var/lib/mp
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/mp-api", "--healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  worker:
+    image: mp-panel:local
+    build: .
+    restart: unless-stopped
+    init: true
+    entrypoint: ["/usr/local/bin/mp-worker"]
+    environment: *panel-env
+    volumes:
+      - panel-data:/var/lib/mp
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  database:
+  panel-data:
