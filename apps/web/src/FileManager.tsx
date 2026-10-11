@@ -4,7 +4,7 @@ import { Button, Checkbox, DropdownMenu, IconButton, Table, TextArea, Tooltip } 
 import { ArchiveIcon, ChevronRightIcon, ClipboardIcon, CopyIcon, Cross2Icon, FileIcon, MoveIcon, Pencil1Icon, ScissorsIcon, TrashIcon, UploadIcon } from '@radix-ui/react-icons';
 import { Folder } from 'lucide-react';
 import { api, enc, upload } from './api';
-import type { FileEntry, Job, Server } from './api';
+import type { FileEntry, Job, Node, Server } from './api';
 import { bytes, Confirm, date, Empty, Input, jobName, Loading, message, Notice, Refresh, Unavailable, useAction, useResource, useUnsavedChanges } from './ui';
 
 type FileContent = { path: string; content: string; revision: string };
@@ -12,6 +12,8 @@ type Clipboard = { paths: string[]; mode: 'copy' | 'move' };
 type UploadItem = { file: File; name: string };
 type Form = 'directory' | 'upload' | 'move' | 'extract' | 'rename' | null;
 const MAX_SELECTION = 100;
+const LEGACY_UPLOAD_ERROR = 'Загрузка отклонена из-за старого ограничения на размер или количество файлов. Обновите панель и агент игрового хоста: «Хосты» → нужный хост → «Обновить агент». Затем повторите загрузку.';
+const uploadError = (error: string) => error.includes('upload needs a verified panel artifact, at most 256 MiB per file') || error.includes('select between 1 and 100 paths') ? LEGACY_UPLOAD_ERROR : error;
 const DRAG_TYPE = 'application/x-mp-files';
 const join = (directory: string, name: string) => directory ? `${directory}/${name}` : name;
 const fileName = (path: string) => path.split('/').pop() || path;
@@ -50,7 +52,7 @@ async function droppedFiles(items: DataTransferItemList, fallback: FileList): Pr
   return result;
 }
 
-export function FileManager({ server, canWrite, onJob }: { server: Server; canWrite: boolean; onJob: (job: Job) => void }) {
+export function FileManager({ server, node, owner = false, canWrite, onJob }: { server: Server; node?: Node; owner?: boolean; canWrite: boolean; onJob: (job: Job) => void }) {
   const base = `/servers/${enc(server.id)}`;
   const [path, setPath] = useState('');
   const files = useResource<FileEntry[]>(`${base}/files?path=${enc(path)}`);
@@ -65,7 +67,7 @@ export function FileManager({ server, canWrite, onJob }: { server: Server; canWr
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [progress, setProgress] = useState<{ index: number; total: number; name: string; loaded: number; size: number }>();
   const [feedback, setFeedback] = useState({ error: '', success: '' });
-  const [pending, setPending] = useState<{ id: string; mode?: 'copy' | 'move' }>();
+  const [pending, setPending] = useState<{ id: string; mode?: 'copy' | 'move'; upload?: boolean }>();
   const job = useResource<Job>(pending ? `/jobs/${enc(pending.id)}` : null, 1500);
   const action = useAction();
   const picker = useRef<HTMLInputElement>(null);
@@ -82,6 +84,7 @@ export function FileManager({ server, canWrite, onJob }: { server: Server; canWr
   const selectedEntry = selection.length === 1 ? entries.find(entry => entry.path === selection[0]) : undefined;
   const archive = selectedEntry && !selectedEntry.is_dir && /\.(zip|rar)$/i.test(selectedEntry.name) ? selectedEntry : undefined;
   const allSelected = !!entries.length && selection.length === entries.length;
+  const visibleError = files.error || action.error || feedback.error;
   useUnsavedChanges(dirty);
 
   useEffect(() => {
@@ -90,7 +93,10 @@ export function FileManager({ server, canWrite, onJob }: { server: Server; canWr
       setFeedback({ error: '', success: `${jobName(job.data.type)}: завершено.` });
       setSelection([]);
       if (pending.mode === 'move') setClipboard(undefined);
-    } else setFeedback({ error: job.data.error || 'Операция завершилась с ошибкой. Подробности доступны в журнале задания.', success: '' });
+    } else {
+      const error = job.data.error || 'Операция завершилась с ошибкой. Подробности доступны в журнале задания.';
+      setFeedback({ error: pending.upload ? uploadError(error) : error, success: '' });
+    }
     setPending(undefined);
     files.refresh();
   }, [job.data, pending, files.refresh]);
@@ -113,8 +119,8 @@ export function FileManager({ server, canWrite, onJob }: { server: Server; canWr
       setOpened(content); setDraft(content.content); setForm(null);
     });
   };
-  const queue = (result: Job, mode?: 'copy' | 'move') => {
-    setPending({ id: result.id, mode }); setFeedback({ error: '', success: '' }); setForm(null); onJob(result);
+  const queue = (result: Job, mode?: 'copy' | 'move', upload = false) => {
+    setPending({ id: result.id, mode, upload }); setFeedback({ error: '', success: '' }); setForm(null); onJob(result);
   };
   const transfer = (paths: string[], target: string, mode: 'copy' | 'move') => {
     if (!writable || !paths.length) return;
@@ -166,8 +172,9 @@ export function FileManager({ server, canWrite, onJob }: { server: Server; canWr
           artifacts.push({ path: join(target, item.name), upload_id: artifact.id });
         }
         const result = await api<Job>(`${base}/files/upload-batch`, 'POST', { files: artifacts });
-        setUploads([]); queue(result);
-      } finally { setProgress(undefined); }
+        setUploads([]); queue(result, undefined, true);
+      } catch (error) { throw new Error(uploadError(message(error))); }
+      finally { setProgress(undefined); }
     });
   };
   const drop = async (event: DragEvent<HTMLElement>, target = path) => {
@@ -202,7 +209,8 @@ export function FileManager({ server, canWrite, onJob }: { server: Server; canWr
   return <section className="file-manager" onKeyDown={shortcuts}>
     <div className="section-title"><h2>Файлы</h2><Refresh onClick={files.refresh} /></div>
     <p className="prose">Для изменения файлов остановите сервер. Копирование и перемещение сохраняют структуру каталогов; существующие файлы не перезаписываются.</p>
-    <Notice error={files.error || action.error || feedback.error} success={action.success || feedback.success} />
+    <Notice error={visibleError} success={action.success || feedback.success} />
+    {visibleError === LEGACY_UPLOAD_ERROR && owner && node && <p className="prose"><a href={`#/nodes/${enc(node.id)}/connect`}>Обновить агент на хосте «{node.name}»</a></p>}
     {pending && <Notice>Выполняется {job.data ? jobName(job.data.type).toLowerCase() : 'операция с файлами'}. <a href={`#/jobs/${enc(pending.id)}`}>Открыть журнал</a>{job.error && <span> Состояние пока недоступно: {job.error}</span>}</Notice>}
     <nav className="breadcrumbs" aria-label="Каталог сервера"><button disabled={action.busy || readingDrop} onClick={() => navigate('')}>Корень</button>{path.split('/').filter(Boolean).map((part, index, parts) => <span key={index}><ChevronRightIcon /><button disabled={action.busy || readingDrop} aria-current={index === parts.length - 1 ? 'location' : undefined} onClick={() => navigate(parts.slice(0, index + 1).join('/'))}>{part}</button></span>)}</nav>
     {opened ? <div className="editor"><div className="section-title"><h3 className="mono">{opened.path}{dirty ? ' · не сохранено' : ''}</h3><Button variant="soft" color="gray" disabled={action.busy} onClick={() => { if (canLeave()) setOpened(undefined); }}>Закрыть файл</Button></div><label htmlFor="file-content" className="sr-only">Содержимое файла {opened.path}</label><TextArea id="file-content" className="code-editor" value={draft} onChange={event => setDraft(event.target.value)} readOnly={!writable} rows={22} spellCheck={false} /><div className="actions"><Button disabled={!writable || !dirty} loading={action.busy} onClick={() => action.run(async () => { await api(`${base}/files/content`, 'PUT', { path: opened.path, content: draft, revision: opened.revision }); const result = await api<FileContent>(`${base}/files/content?path=${enc(opened.path)}`); setOpened(result); setDraft(result.content); }, 'Файл сохранен. При необходимости перезапустите сервер.')}>Сохранить файл</Button></div></div> : <>

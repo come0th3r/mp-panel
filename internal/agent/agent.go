@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/come0th3r/mp-panel/internal/model"
+	"github.com/come0th3r/mp-panel/internal/version"
 )
 
 var identifier = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$`)
@@ -151,6 +152,7 @@ func (a *Agent) request(ctx context.Context, method, path string, in, out any) (
 		return 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-MP-Agent-Version", version.Current)
 	resp, err := a.client.Do(req)
 	if err != nil {
 		return 0, err

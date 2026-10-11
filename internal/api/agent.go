@@ -77,6 +77,10 @@ func (a *API) heartbeat(w http.ResponseWriter, r *http.Request) {
 	n.LastSeen = now()
 	n.OS = h.Node.OS
 	n.Arch = h.Node.Arch
+	n.AgentVersion = strings.TrimSpace(r.Header.Get("X-MP-Agent-Version"))
+	if len(n.AgentVersion) > 64 {
+		n.AgentVersion = ""
+	}
 	n.CPUCount = h.Node.CPUCount
 	n.MemoryTotal = h.Node.MemoryTotal
 	n.DiskTotal = h.Node.DiskTotal

@@ -91,7 +91,7 @@ Backup `{id,server_id,node_id,name,size,sha256,created_at,path}`.
 - mc-router or Gate applies explicit Minecraft Java hostname routes. DNS, NAT, VPN and firewall are configured separately. Active means applied rule, not verified end-to-end game access. Route count is capped at 2000; mc-router retains domain ownership history (4000 domains) to reconcile uncertain deletions after restart.
 
 ## Agent interface (mTLS only, separate listener)
-- `POST /agent/v1/heartbeat` Heartbeat.
+- `POST /agent/v1/heartbeat` Heartbeat. Agents v0.3.4+ send `X-MP-Agent-Version`; the API saves it as optional Node `agent_version`. Older agents remain accepted; missing version is reported as unknown, not incompatible.
 - `GET /agent/v1/commands?wait=20` -> Command or 204.
 - `POST /agent/v1/results` CommandResult.
 - `GET /agent/v1/artifacts/{id}` streams upload (command node must match).

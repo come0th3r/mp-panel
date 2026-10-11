@@ -18,6 +18,7 @@ type Node struct {
 	Status          string `json:"status"`
 	OS              string `json:"os,omitempty"`
 	Arch            string `json:"arch,omitempty"`
+	AgentVersion    string `json:"agent_version,omitempty"`
 	CPUCount        int    `json:"cpu_count,omitempty"`
 	MemoryTotal     uint64 `json:"memory_total,omitempty"`
 	DiskTotal       uint64 `json:"disk_total,omitempty"`

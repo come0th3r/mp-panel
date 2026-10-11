@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -11,11 +12,17 @@ import (
 
 	"github.com/come0th3r/mp-panel/internal/agent"
 	"github.com/come0th3r/mp-panel/internal/model"
+	"github.com/come0th3r/mp-panel/internal/version"
 )
 
 func main() {
 	config := flag.String("config", "/etc/mp-agent/config.json", "Agent configuration file")
+	showVersion := flag.Bool("version", false, "Print agent version")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(version.Current)
+		return
+	}
 	b, err := os.ReadFile(*config)
 	if err != nil {
 		log.Fatal(err)
