@@ -6,10 +6,10 @@
 
 Нужен Debian или Ubuntu на x86_64, права root или sudo и доступ в интернет. Установщик собирает приложение на сервере, поэтому первая установка занимает время и требует места для Docker-образов.
 
-Скачайте установщик из [релиза v0.3.1](https://github.com/come0th3r/mp-panel/releases/tag/v0.3.1) и запустите:
+Скачайте установщик из [релиза v0.3.2](https://github.com/come0th3r/mp-panel/releases/tag/v0.3.2) и запустите:
 
 ```bash
-curl -fL https://github.com/come0th3r/mp-panel/releases/download/v0.3.1/setup.sh -o setup.sh &&
+curl -fL https://github.com/come0th3r/mp-panel/releases/download/v0.3.2/setup.sh -o setup.sh &&
 sudo bash setup.sh
 ```
 

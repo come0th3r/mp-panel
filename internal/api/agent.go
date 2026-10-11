@@ -484,7 +484,10 @@ func (a *API) agentArtifact(w http.ResponseWriter, r *http.Request) {
 	}
 	var authorized bool
 	e := a.Store.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM mp_commands c WHERE node_id=$1 AND state IN ('pending','delivered') AND (
- c.payload->'payload'->'artifact'->>'id'=$2 OR EXISTS(
+ c.payload->'payload'->'artifact'->>'id'=$2 OR (
+ c.payload->>'type'='file.upload_batch' AND EXISTS(
+ SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(c.payload->'payload'->'files')='array'
+ THEN c.payload->'payload'->'files' ELSE '[]'::jsonb END) file WHERE file->'artifact'->>'id'=$2)) OR EXISTS(
  SELECT 1 FROM jsonb_array_elements(COALESCE(c.payload->'install'->'artifacts','[]'::jsonb)||COALESCE(c.payload->'install'->'extra_jars','[]'::jsonb)) asset WHERE asset->>'id'=$2)))`, nodeIdentity(r), id).Scan(&authorized)
 	if e != nil || !authorized {
 		fail(w, 403, "Artifact not assigned to this node")
