@@ -49,6 +49,10 @@ Job `{id,node_id,server_id?,type,status,step,error?,logs:string[],created_at,upd
 - `GET /servers/{id}/files/content?path=...` -> `{path,content,revision}` (text limit).
 - `PUT /servers/{id}/files/content` `{path,content,revision?}` -> `{ok:true}`.
 - `POST /servers/{id}/files/upload` `{path,upload_id}` -> Job (stopped server).
+- `POST /servers/{id}/files/upload-batch` `{files:[{path,upload_id}]}` -> Job; upload each file to `/uploads` first. Nested paths create missing directories.
+- `POST /servers/{id}/files/transfer` `{paths:string[],destination:string,mode:"copy"|"move"}` -> Job. Destination must exist; copy to the source directory creates a unique copy name.
+- `POST /servers/{id}/files/extract` `{path,destination}` -> Job; ZIP or single-volume unencrypted RAR. Destination directories are created when missing.
+- `POST /servers/{id}/files/delete-batch` `{paths:string[]}` -> Job; directories are removed with their contents.
 - `POST /servers/{id}/files/directory` `{path}` -> `{ok:true}`.
 - `POST /servers/{id}/files/rename` `{path,new_path}` -> `{ok:true}`.
 - `DELETE /servers/{id}/files?path=...` -> `{ok:true}` (stopped server).
@@ -57,6 +61,8 @@ Job `{id,node_id,server_id?,type,status,step,error?,logs:string[],created_at,upd
 - `GET /servers/{id}/extensions` -> FileEntry[] from mods/plugins.
 - `POST /servers/{id}/extensions` `{upload_id}` -> Job.
 - `POST /servers/{id}/extensions/toggle` `{path,enabled}` -> `{ok:true}`.
+
+Batch operations require management permission, an online node and a stopped server (verified again by the agent). They return `202` and a Job with a 20-minute command deadline. Limit: 100 selected objects or uploaded files, each upload at most 256MiB. Paths are canonical UTF-8 relative paths; empty destination means the server root. Duplicate or overlapping selections, symlinks, special files, traversal and existing destination files are rejected. Copy/move source trees are capped at 100,000 entries. Archives are capped at 10,000 entries including implicit parent directories and 2GiB expanded data; RAR dictionaries are limited to 64MiB. ZIP metadata is capped at 64MiB. Files are staged before commit; ordinary operation errors trigger rollback. Process/host termination during commit may require administrative recovery. Folder uploads preserve file paths but do not transfer empty directories. Agents must be upgraded along with the panel to support these commands.
 
 ## Console and backups
 - `GET /servers/{id}/logs` -> `{lines:string[]}`

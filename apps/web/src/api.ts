@@ -28,5 +28,26 @@ export async function api<T>(path: string, method = 'GET', body?: unknown, signa
   }
   return value as T;
 }
-export async function upload(file: File) { if (file.size > 256 * 1024 * 1024) throw new Error('Файл превышает лимит 256 МиБ.'); const data = new FormData(); data.append('file', file); return api<Upload>('/uploads', 'POST', data); }
+export async function upload(file: File, onProgress?: (loaded: number) => void): Promise<Upload> {
+  if (file.size > 256 * 1024 * 1024) throw new Error('Файл превышает лимит 256 МиБ.');
+  const data = new FormData(); data.append('file', file);
+  if (!onProgress) return api<Upload>('/uploads', 'POST', data);
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('POST', '/api/v1/uploads');
+    request.setRequestHeader('X-CSRF-Token', csrf);
+    request.upload.onprogress = event => onProgress(Math.min(file.size, event.loaded));
+    request.onerror = () => reject(new Error('Загрузка прервана. Проверьте соединение с панелью и повторите загрузку.'));
+    request.onabort = () => reject(new Error('Загрузка отменена.'));
+    request.onload = () => {
+      let value: Upload & { error?: string; code?: string };
+      try { value = JSON.parse(request.responseText); } catch { reject(new APIError('Сервер вернул некорректный ответ при загрузке файла.', request.status)); return; }
+      if (request.status < 200 || request.status >= 300) {
+        if (request.status === 401) window.dispatchEvent(new Event('mp:session-expired'));
+        reject(new APIError(value?.error || `Загрузка не выполнена (${request.status})`, request.status, value?.code));
+      } else { onProgress(file.size); resolve(value); }
+    };
+    request.send(data);
+  });
+}
 export const enc = encodeURIComponent;

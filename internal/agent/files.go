@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,6 +22,20 @@ import (
 )
 
 const textLimit = 2 << 20
+
+func ownManagedFile(f *os.File) error {
+	if runtime.GOOS != "linux" {
+		return nil
+	}
+	return f.Chown(1000, 1000)
+}
+
+func ownManagedPath(r *os.Root, name string) error {
+	if runtime.GOOS != "linux" {
+		return nil
+	}
+	return r.Chown(name, 1000, 1000)
+}
 
 func cleanPath(name string) (string, error) {
 	if strings.ContainsAny(name, "\\\x00") {
@@ -161,6 +176,9 @@ func jailedWrite(dir, name string, src io.Reader, limit int64, exclusive bool) e
 		err = errors.New("file exceeds size limit")
 	}
 	if err == nil {
+		err = ownManagedFile(f)
+	}
+	if err == nil {
 		err = f.Sync()
 	}
 	cerr := f.Close()
@@ -222,7 +240,11 @@ func makeDir(dir, name string) error {
 	current := ""
 	for _, part := range strings.Split(p, "/") {
 		current = path.Join(current, part)
-		if err = r.Mkdir(current, 0750); err != nil && !os.IsExist(err) {
+		if err = r.Mkdir(current, 0750); err != nil {
+			if !os.IsExist(err) {
+				return err
+			}
+		} else if err = ownManagedPath(r, current); err != nil {
 			return err
 		}
 	}

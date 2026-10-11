@@ -5,7 +5,7 @@ param(
   [int]$Port = 22,
   [string]$IdentityFile,
   [string]$InstallDirectory = '/opt/mp-panel',
-  [string]$Version = 'v0.1.1',
+  [string]$Version = 'v0.2.0',
   [string]$Repository = 'come0th3r/mp-panel'
 )
 $ErrorActionPreference = 'Stop'

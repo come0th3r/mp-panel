@@ -163,6 +163,38 @@ func (a *Agent) execute(ctx context.Context, c model.Command) (any, []string, er
 			break
 		}
 		err = a.download(ctx, dir, p.Path, p.Artifact, true)
+	case "file.transfer":
+		if err = a.requireStopped(ctx, c.ServerID); err != nil {
+			break
+		}
+		var transfer fileTransferPayload
+		if err = json.Unmarshal(c.Payload, &transfer); err == nil {
+			output, err = transferFiles(ctx, dir, transfer, &logs)
+		}
+	case "file.extract":
+		if err = a.requireStopped(ctx, c.ServerID); err != nil {
+			break
+		}
+		var extract fileExtractPayload
+		if err = json.Unmarshal(c.Payload, &extract); err == nil {
+			output, err = extractFiles(ctx, dir, extract, &logs)
+		}
+	case "file.upload_batch":
+		if err = a.requireStopped(ctx, c.ServerID); err != nil {
+			break
+		}
+		var upload fileUploadPayload
+		if err = json.Unmarshal(c.Payload, &upload); err == nil {
+			output, err = a.uploadFiles(ctx, dir, upload, &logs)
+		}
+	case "file.delete_batch":
+		if err = a.requireStopped(ctx, c.ServerID); err != nil {
+			break
+		}
+		var deletion fileDeletePayload
+		if err = json.Unmarshal(c.Payload, &deletion); err == nil {
+			output, err = deleteFiles(ctx, dir, deletion, &logs)
+		}
 	case "file.mkdir":
 		if err = a.requireStopped(ctx, c.ServerID); err == nil {
 			err = makeDir(dir, p.Path)

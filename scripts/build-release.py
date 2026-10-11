@@ -10,12 +10,12 @@ import subprocess
 import tarfile
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--version', default='v0.1.1')
+parser.add_argument('--version', default='v0.2.0')
 parser.add_argument('--ref', default='HEAD')
 parser.add_argument('--output', default='release')
 args = parser.parse_args()
 if not re.fullmatch(r'v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', args.version):
-    parser.error('version must be a release tag such as v0.1.1')
+    parser.error('version must be a release tag such as v0.2.0')
 
 root = Path(__file__).resolve().parents[1]
 commit = subprocess.check_output(['git', 'rev-parse', '--verify', args.ref + '^{commit}'], cwd=root, text=True).strip()

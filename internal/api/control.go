@@ -174,6 +174,14 @@ func (a *API) bootstrapNode(w http.ResponseWriter, r *http.Request) {
 			fail(w, 409, "Подключение этого хоста уже выполняется")
 			return
 		}
+		if e = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM mp_commands WHERE node_id=$1 AND mutating AND state IN ('pending','delivered'))`, id).Scan(&active); e != nil {
+			fail(w, 503, "Не удалось проверить задания игровых серверов")
+			return
+		}
+		if active {
+			fail(w, 409, "Дождитесь завершения заданий игровых серверов перед обновлением агента")
+			return
+		}
 		n.Name, n.Address, n.SSHPort, n.SSHUser, n.Status, n.Error = p.Name, p.Address, p.Port, p.User, "connecting", ""
 		j.NodeID = id
 	}
