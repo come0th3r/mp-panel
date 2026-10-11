@@ -254,9 +254,11 @@ details[open] > summary { margin-bottom: var(--space-md); }
 
 .file-manager { min-width: 0; }
 .file-manager .breadcrumbs { overflow-wrap: anywhere; }
-.file-manager-toolbar { display: flex; flex-direction: column; gap: var(--space-md); margin-bottom: var(--space-xl); }
-.file-manager-selection { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-md); padding: var(--space-md) 0; border-top: 1px solid var(--mp-border); }
-.file-manager-selection > span { font-size: 13px; color: var(--mp-muted); flex-shrink: 0; }
+.file-manager-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); padding: var(--space-md) 0; border-top: 1px solid var(--mp-border); }
+.file-manager-create-actions { flex-shrink: 0; gap: 6px; }
+.file-manager-selection-count { font-size: 13px; color: var(--mp-muted); flex: 1; }
+.file-manager-toolbar > .file-manager-icon-actions { margin-left: auto; justify-content: flex-end; }
+.file-manager .file-tool:disabled { color: var(--gray-a8); background: var(--gray-a3); cursor: not-allowed; }
 .file-manager-clipboard { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; padding-bottom: var(--space-md); }
 .file-manager-clipboard small { overflow-wrap: anywhere; }
 .file-manager-form { padding: var(--space-lg); border: 1px solid var(--mp-border); border-radius: 8px; background: var(--mp-surface); margin: var(--space-sm) 0 var(--space-xl); }
@@ -313,7 +315,9 @@ details[open] > summary { margin-bottom: var(--space-md); }
   .file-manager-table .file-manager-date { display: none; }
   .file-manager-table .file-manager-size { width: 92px; }
   .file-manager-table .rt-TableRoot { min-width: 0; }
-  .file-manager-selection > .actions { width: 100%; }
+  .file-manager-toolbar > .file-manager-icon-actions { flex-wrap: wrap; }
+  .file-manager .file-tool { width: 32px; min-width: 32px; height: 32px; }
+  .file-manager-icon-actions { gap: 4px; }
   .file-manager-form .inline-edit { flex-direction: column; align-items: stretch; }
   .file-manager-form .field { min-width: 0; }
   .file-manager-upload-list li > small { display: none; }
