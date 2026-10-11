@@ -48,10 +48,10 @@ code { overflow-wrap: anywhere; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
 .app-shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100dvh; }
 .sidebar { position: sticky; top: 0; height: 100dvh; overflow-y: auto; background: var(--mp-sidebar); border-right: 1px solid var(--mp-border); display: flex; flex-direction: column; padding: var(--space-xl) var(--space-md) var(--space-lg); gap: var(--space-2xl); }
-.brand { display: flex; align-items: center; gap: var(--space-md); padding: 0 var(--space-xs); color: var(--mp-ink); font-weight: 600; font-size: 14px; }
+.brand { display: inline-flex; align-items: baseline; gap: 6px; padding: var(--space-sm) var(--space-md); color: var(--mp-ink); width: fit-content; }
 .brand:hover { text-decoration: none; }
-.brand small { display: block; font-weight: 400; margin-top: var(--space-xs); }
-.brand-mark { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; background: var(--mp-ink); color: var(--mp-surface); border-radius: 6px; font-size: 14px; font-weight: 650; flex-shrink: 0; letter-spacing: -0.03em; }
+.brand-initials { font-size: 26px; font-weight: 750; letter-spacing: -0.035em; line-height: 1; }
+.brand-name { font-size: 17px; font-weight: 500; letter-spacing: -0.025em; color: var(--mp-muted); }
 .sidebar nav { display: flex; flex-direction: column; gap: var(--space-xs); }
 .sidebar nav a { display: flex; align-items: center; gap: var(--space-md); min-height: 40px; padding: var(--space-sm) var(--space-md); border-radius: 6px; color: var(--mp-muted); transition: background 160ms ease-out, color 160ms ease-out; }
 .sidebar nav a svg { width: 18px; height: 18px; flex-shrink: 0; }
@@ -283,6 +283,32 @@ details[open] > summary { margin-bottom: var(--space-md); }
 .file-manager-table tr[data-cut] .file-link { opacity: 0.55; }
 .file-manager-table tr[data-drop-target] > * { background: var(--violet-4); box-shadow: inset 0 1px var(--violet-8), inset 0 -1px var(--violet-8); }
 .file-manager-help { display: block; margin-top: var(--space-lg); max-width: 90ch; }
+.file-manager-icon-actions { gap: 6px; }
+.file-tool-hint { display: inline-flex; border-radius: 6px; }
+.file-manager .file-tool, .file-tool-hint .file-tool { min-width: 36px; width: 36px; height: 36px; position: relative; }
+.file-tool-count { position: absolute; bottom: 1px; right: 3px; line-height: 1; font-size: 9px; font-weight: 650; }
+.file-manager-clipboard .file-tool { width: 28px; height: 28px; min-width: 28px; }
+.update-indicator { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm) 0; border-bottom: 1px solid var(--mp-border); }
+.update-indicator a { display: inline-flex; align-items: center; gap: var(--space-sm); min-width: 0; flex: 1; font-size: 12px; color: var(--mp-muted); }
+.update-indicator a:hover { color: var(--mp-primary); }
+.update-indicator svg { flex-shrink: 0; }
+.update-indicator .rt-IconButton { flex-shrink: 0; }
+.panel-updates { max-width: 900px; }
+.update-state, .update-release-link { display: inline-flex; align-items: center; gap: var(--space-sm); }
+.update-state { display: flex; margin-top: var(--space-xl); }
+.update-state svg { color: var(--mp-primary); flex-shrink: 0; }
+.update-instructions { margin-top: var(--space-2xl); }
+.update-instructions ol { margin: 0 0 var(--space-xl); padding-left: 20px; line-height: 1.7; max-width: 75ch; }
+.update-instructions li + li { margin-top: var(--space-sm); }
+.update-command { display: flex; align-items: flex-start; gap: var(--space-md); padding: var(--space-lg); border: 1px solid var(--mp-border); background: var(--mp-surface); border-radius: 8px; margin-bottom: var(--space-md); }
+.update-command pre { margin: 0; flex: 1; min-width: 0; }
+.update-command .rt-IconButton { flex-shrink: 0; }
+@media (max-width: 768px) {
+  .sidebar-bottom { flex-wrap: wrap; }
+  .sidebar-bottom .update-indicator { flex-basis: 100%; order: 1; border: 0; padding: 0; }
+  .brand-initials { font-size: 24px; }
+  .brand-name { font-size: 16px; }
+}
 @media (max-width: 700px) {
   .file-manager-table .file-manager-date { display: none; }
   .file-manager-table .file-manager-size { width: 92px; }

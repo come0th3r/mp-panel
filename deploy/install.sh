@@ -10,6 +10,10 @@ case "$destination" in /*) ;; *) echo 'Destination must be absolute' >&2; exit 1
 case "$destination" in /|/etc|/usr|/var|/home|/root|*/../*|*/..) echo 'Choose a dedicated installation directory' >&2; exit 1;; esac
 if [ "$(id -u)" -ne 0 ]; then echo 'Installer requires root or passwordless sudo' >&2; exit 1; fi
 trap 'rm -f -- "$archive" "$envfile"' EXIT
+if [ -e "$destination/.env" ]; then
+  echo 'Existing installation detected. Use setup.sh --source with this directory for a backed-up update.' >&2
+  exit 1
+fi
 if [ ! -f "$archive" ] || [ ! -f "$envfile" ]; then echo 'Missing staged source or .env' >&2; exit 1; fi
 if ! command -v docker >/dev/null 2>&1; then
   # Official convenience installer; changes system packages on this deployment target.

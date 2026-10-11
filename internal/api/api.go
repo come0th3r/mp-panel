@@ -20,6 +20,8 @@ import (
 	"github.com/come0th3r/mp-panel/internal/model"
 	"github.com/come0th3r/mp-panel/internal/security"
 	"github.com/come0th3r/mp-panel/internal/store"
+	"github.com/come0th3r/mp-panel/internal/updates"
+	"github.com/come0th3r/mp-panel/internal/version"
 	"github.com/gorilla/websocket"
 )
 
@@ -29,6 +31,7 @@ type API struct {
 	Vault   *security.Vault
 	CA      *security.CA
 	Catalog *catalog.Catalog
+	Updates *updates.Checker
 	mu      sync.Mutex
 	rates   map[string]*rateEntry
 }
@@ -50,7 +53,7 @@ func New(s *store.Store, c config.Config) (*API, error) {
 	if e != nil {
 		return nil, e
 	}
-	return &API{Store: s, Config: c, Vault: v, CA: ca, Catalog: catalog.New(c.UserAgent), rates: map[string]*rateEntry{}}, nil
+	return &API{Store: s, Config: c, Vault: v, CA: ca, Catalog: catalog.New(c.UserAgent), Updates: updates.New(version.Current), rates: map[string]*rateEntry{}}, nil
 }
 func write(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -217,8 +220,10 @@ func (a *API) WebHandler() http.Handler {
 	m.HandleFunc("POST /api/v1/servers/{id}/backups", a.require("manage", a.backup))
 	m.HandleFunc("POST /api/v1/servers/{id}/restores", a.require("manage", a.restore))
 	m.HandleFunc("GET /api/v1/audit", a.require("owner", a.auditList))
+	m.HandleFunc("GET /api/v1/updates", a.require("owner", a.updateStatus))
+	m.HandleFunc("POST /api/v1/updates/check", a.require("owner", a.checkUpdate))
 	m.HandleFunc("GET /api/v1/settings", a.require("read", func(w http.ResponseWriter, r *http.Request) {
-		write(w, 200, map[string]any{"agent_public_url": a.Config.AgentURL, "default_java": 21, "version": "0.2.0", "gateway_enabled": a.Config.GatewayURL() != "", "gateway_provider": a.Config.GatewayProvider(), "game_domain": a.Config.GameDomain})
+		write(w, 200, map[string]any{"agent_public_url": a.Config.AgentURL, "default_java": 21, "version": version.Current, "gateway_enabled": a.Config.GatewayURL() != "", "gateway_provider": a.Config.GatewayProvider(), "game_domain": a.Config.GameDomain})
 	}))
 	m.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, "API endpoint не найден") })
 	fs := http.FileServer(http.Dir(a.Config.WebDir))

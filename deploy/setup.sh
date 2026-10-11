@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 umask 077
 
-MP_RELEASE_VERSION='v0.2.0'
+MP_RELEASE_VERSION='v0.3.0'
 REPOSITORY="${MP_REPOSITORY:-come0th3r/mp-panel}"
 DESTINATION='/opt/mp-panel'
 SOURCE=''
@@ -38,7 +38,7 @@ MP Panel: установка на Debian или Ubuntu (x86_64).
   sudo bash setup.sh --yes --contact admin@example.com --public-url http://192.168.1.10:8080 --agent-url https://192.168.1.10:8443
 
 Параметры:
-  --version TAG       Версия релиза, по умолчанию v0.2.0.
+  --version TAG       Версия релиза, по умолчанию v0.3.0.
   --repository NAME   Репозиторий GitHub в формате owner/name.
   --source PATH       Каталог исходников или архив .tar.gz вместо скачивания.
   --directory PATH    Каталог установки, по умолчанию /opt/mp-panel.
@@ -56,8 +56,9 @@ MP Panel: установка на Debian или Ubuntu (x86_64).
   --help              Показать справку.
 
 При обновлении существующий .env сохраняется целиком. Параметры новых
-настроек к нему не применяются. Базы, пользователи и маршруты хранятся
-в прежних томах Docker. Minecraft-серверы установщик не создает.
+настроек к нему не применяются. Сначала собирается новая версия, затем
+создаются копии базы и ключей. При сбое возвращается прежняя версия.
+Действующие Compose-файлы сохраняются. Minecraft-серверы не создаются.
 HELP
 }
 
@@ -234,6 +235,15 @@ for source_entry in "${source_entries[@]}"; do
   special_entry=$(find "$SOURCE/$source_entry" \( -name node_modules -o -name .vite -o -name dist -o -name .git \) -prune -o \( ! -type f ! -type d \) -print -quit)
   [[ -z "$special_entry" ]] || fail "В $source_entry обнаружена ссылка или специальный файл: $special_entry"
 done
+if $EXISTING_ENV; then
+  [[ -f "$SOURCE/deploy/update.sh" && ! -L "$SOURCE/deploy/update.sh" ]] || fail 'В выбранных исходниках нет безопасного установщика обновлений deploy/update.sh.'
+  source "$SOURCE/deploy/update.sh"
+  update_panel
+  configured_url=$(sed -n 's/^MP_PUBLIC_URL=//p' "$DESTINATION/.env" | tail -n 1)
+  printf 'Панель: %s\nНастройки: %s/.env\n' "$configured_url" "$DESTINATION"
+  printf 'Учетные записи, агенты и игровые серверы используют прежнюю регистрацию. Агенты обновляются отдельно из панели.\n'
+  exit 0
+fi
 mkdir -p -- "$DESTINATION"
 chmod 750 "$DESTINATION"
 if [[ "$SOURCE" != "$(cd -- "$DESTINATION" && pwd -P)" ]]; then

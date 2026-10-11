@@ -75,6 +75,8 @@ Backup `{id,server_id,node_id,name,size,sha256,created_at,path}`.
 - `GET /audit` -> AuditEvent[].
 - `GET /users`; `POST /users` `{username,password,role}`; roles owner/admin/operator/viewer.
 - `GET /settings` -> `{agent_public_url,default_java,version,gateway_enabled,gateway_provider,game_domain}`.
+- `GET /updates` -> `{current_version,latest_version?,update_available,release_url?,published_at?,checked_at?,error?}` (owner-only). Returns the cached state immediately and refreshes stale data in the background.
+- `POST /updates/check` -> same status (owner-only, CSRF required). Stable releases are checked on GitHub, at most once per minute; successful results are cached for six hours. Network failures retain previously validated release details and do not block the panel. These endpoints do not install updates or execute host commands.
 - AuditEvent `{id,actor,action,object_id,detail,created_at}`. Owner/admin manage all servers, viewer reads globally. Operator sees and fully manages only explicitly assigned servers and their jobs; server creation, host administration, users and access assignment remain restricted. Uploads are owned by the uploading user. Owner cannot be created through `/users`.
 
 ## Optional Minecraft gateway
