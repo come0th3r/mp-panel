@@ -431,6 +431,9 @@ func (a *API) enqueue(r *http.Request, cmd model.Command, j model.Job, s *model.
 		return e
 	}
 	defer tx.Rollback(r.Context())
+	if e = a.lockUploads(r.Context(), tx, cmd); e != nil {
+		return e
+	}
 	var n []byte
 	if e = tx.QueryRow(r.Context(), `SELECT payload FROM mp_entities WHERE kind='node' AND id=$1 FOR UPDATE`, cmd.NodeID).Scan(&n); e != nil {
 		return fmt.Errorf("Хост не найден")

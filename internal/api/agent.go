@@ -527,6 +527,9 @@ func (a *API) RunMaintenance(ctx context.Context) {
 			if e := a.expireWork(ctx); e != nil {
 				log.Printf("expire bootstrap work: %v", e)
 			}
+			if e := a.cleanupUploads(ctx); e != nil {
+				log.Printf("upload cleanup: %v", e)
+			}
 			for _, sql := range []string{`DELETE FROM mp_sessions WHERE expires_at<now()`, `DELETE FROM mp_metrics WHERE measured_at<now()-interval '7 days'`, `DELETE FROM mp_idempotency WHERE created_at<now()-interval '24 hours'`, `DELETE FROM mp_commands WHERE state IN ('completed','expired') AND created_at<now()-interval '7 days'`} {
 				if _, e := a.Store.Pool.Exec(ctx, sql); e != nil {
 					log.Printf("maintenance: %v", e)

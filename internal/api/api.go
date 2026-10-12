@@ -27,15 +27,16 @@ import (
 )
 
 type API struct {
-	Store    *store.Store
-	Config   config.Config
-	Vault    *security.Vault
-	CA       *security.CA
-	Catalog  *catalog.Catalog
-	Modrinth *modrinth.Catalog
-	Updates  *updates.Checker
-	mu       sync.Mutex
-	rates    map[string]*rateEntry
+	Store        *store.Store
+	Config       config.Config
+	Vault        *security.Vault
+	CA           *security.CA
+	Catalog      *catalog.Catalog
+	Modrinth     *modrinth.Catalog
+	Updates      *updates.Checker
+	mu           sync.Mutex
+	rates        map[string]*rateEntry
+	uploadCursor string
 }
 type rateEntry struct {
 	start time.Time

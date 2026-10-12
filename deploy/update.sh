@@ -56,6 +56,64 @@ update_check_jobs() {
   [[ "$active" == 0 ]] || update_error "Есть незавершённые управляющие задания ($active). Дождитесь их завершения и повторите обновление."
 }
 
+update_prune_storage() {
+  local keep prune identifier image
+  read -r keep prune < <(python3 - "$DESTINATION/.env" <<'PY'
+import re,sys
+settings={}
+for line in open(sys.argv[1]):
+ match=re.fullmatch(r'\s*(MP_UPDATE_BACKUPS|MP_PRUNE_BUILD_CACHE)\s*=\s*([A-Za-z0-9]+)\s*',line)
+ if match:settings[match[1]]=match[2]
+keep=settings.get('MP_UPDATE_BACKUPS','1')
+if not keep.isdigit() or not 1<=int(keep)<=100:raise ValueError('MP_UPDATE_BACKUPS must be 1..100')
+prune=settings.get('MP_PRUNE_BUILD_CACHE','true')
+if prune not in {'true','false'}:raise ValueError('MP_PRUNE_BUILD_CACHE must be true or false')
+print(keep,prune)
+PY
+  ) || return 1
+  local removed="$UPDATE_TRANSACTION/pruned-updates"
+  python3 - "$UPDATE_TRANSACTION" "$keep" > "$removed" <<'PY' || return 1
+import os,re,shutil,sys
+from pathlib import Path
+current=Path(sys.argv[1]);root=current.parent;keep=int(sys.argv[2])
+if root.resolve()!=root or current.resolve()!=current or root.stat().st_uid!=0:raise ValueError('unsafe update root')
+pattern=re.compile(r'\d{8}T\d{6}Z-[a-f0-9]{8}')
+entries=[]
+for path in root.iterdir():
+ if not pattern.fullmatch(path.name) or path.is_symlink() or not path.is_dir() or path.stat().st_uid!=0:continue
+ phase=path/'phase'
+ if phase.is_symlink() or not phase.is_file():continue
+ state=phase.read_text().strip()
+ if state in {'committed','rolled-back'}:entries.append((path,state))
+successful=sorted((p for p,s in entries if s=='committed'),key=lambda p:p.name,reverse=True)
+retained={current,*successful[:keep]}
+for path,state in entries:
+ if path in retained or path.name>=current.name:continue
+ # Keep incomplete recovery attempts and any tree containing links. No state
+ # file is sourced or executed to decide whether an old archive can be removed.
+ unsafe=False
+ for base,dirs,files in os.walk(path,followlinks=False):
+  if any((Path(base)/name).is_symlink() for name in dirs+files):unsafe=True;break
+ if unsafe:continue
+ shutil.rmtree(path)
+ print(path.name,flush=True)
+PY
+  while IFS= read -r identifier; do
+    [[ "$identifier" =~ ^[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}$ ]] || continue
+    printf 'Удалена старая копия обновления: %s\n' "$identifier"
+    for image in "mp-panel-backup:$identifier-api" "mp-panel-backup:$identifier-worker" "mp-panel-update:$identifier-api" "mp-panel-update:$identifier-worker"; do
+      if docker image inspect "$image" >/dev/null 2>&1; then
+        # No force: Docker refuses to remove an image used by a container.
+        docker image rm --no-prune "$image" >/dev/null 2>&1 || true
+      fi
+    done
+  done < "$removed"
+  if [[ "$prune" == true ]]; then
+    printf 'Очищаем неиспользуемый кэш сборок Docker, оставляя до 1 GiB.\n'
+    docker builder prune -a -f --keep-storage 1GB || return 1
+  fi
+}
+
 update_verify_stopped() {
   local service container state containers
   for service in api worker; do
@@ -284,7 +342,11 @@ PY
   [[ "$source_size" =~ ^[0-9]+$ && "$panel_size" =~ ^[0-9]+$ && "$db_size" =~ ^[0-9]+$ ]] || return 1
   free=$(df -Pk "$root" | awk 'NR==2{printf "%.0f",$4*1024}')
   required=$((source_size*3+panel_size+db_size*2+4294967296))
-  (( free >= required )) || { update_error 'Недостаточно свободного места для копий и сборки (нужно минимум 4 GiB плюс размер данных).'; return 1; }
+  (( free >= required )) || {
+    printf 'Свободно: %s байт. Требуется: %s байт (данные панели: %s; база: %s; исходники: %s; запас на сборку: 4 GiB).\n' "$free" "$required" "$panel_size" "$db_size" "$source_size" >&2
+    update_error 'Недостаточно места для согласованной копии и сборки. Старые загрузки можно проверить через deploy/cleanup-storage.py; не удаляйте том с ключами.'
+    return 1
+  }
   docker_root=$(docker info --format '{{.DockerRootDir}}')
   docker_free=$(df -Pk "$docker_root" | awk 'NR==2{printf "%.0f",$4*1024}')
   (( docker_free >= 4294967296 )) || { update_error 'В файловой системе Docker нужно минимум 4 GiB свободного места для сборки.'; return 1; }
@@ -359,6 +421,9 @@ PY
   fi
   update_phase committed
   trap - ERR INT TERM
+  if ! update_prune_storage; then
+    printf 'Новая версия работает, но уборка старых копий или кэша не завершилась. Проверьте свободное место.\n' >&2
+  fi
   printf 'Обновление завершено. Резервная копия сохранена в %s.\n' "$UPDATE_TRANSACTION"
   printf 'Настройки .env и действующие Compose-файлы сохранены. Остановленные ранее сервисы остаются остановленными.\n'
 }
