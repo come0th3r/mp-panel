@@ -20,13 +20,13 @@ sudo bash setup.sh
 
 Установщик запросит адрес панели, HTTPS-адрес агентского канала и контактный email администратора для каталога Paper. Затем можно выбрать игровой шлюз (`none`, `mc-router` или `gate`) и существующую Docker-сеть Nginx Proxy Manager. При установке шлюза понадобится игровой домен и локальный TCP-порт.
 
-Без параметра `--source` отдельный установщик скачивает архив `mp-panel-v0.4.0.tar.gz` из релиза и проверяет его по `SHA256SUMS`. Он создаёт каталог `/opt/mp-panel`, генерирует пароль PostgreSQL, сохраняет `.env` с правами 0600, собирает контейнеры и ждёт готовности API. После первой установки выводится токен создания владельца. Minecraft-серверы создаются отдельно в панели.
+Без параметра `--source` отдельный установщик скачивает архив `mp-panel-v0.4.1.tar.gz` из релиза и проверяет его по `SHA256SUMS`. Он создаёт каталог `/opt/mp-panel`, генерирует пароль PostgreSQL, сохраняет `.env` с правами 0600, собирает контейнеры и ждёт готовности API. После первой установки выводится токен создания владельца. Minecraft-серверы создаются отдельно в панели.
 
 Если исходники уже скачаны, можно установить панель из каталога или архива:
 
 ```sh
 sudo bash deploy/setup.sh --source /path/to/mp-panel
-sudo bash setup.sh --source /path/to/mp-panel-v0.4.0.tar.gz
+sudo bash setup.sh --source /path/to/mp-panel-v0.4.1.tar.gz
 ```
 
 Справка доступна без установки:
@@ -103,7 +103,7 @@ sudo bash /var/lib/mp-panel-updates/mp-panel/<ID>/recover.sh --recover /var/lib/
 
 ## Установка всего веб-приложения по SSH с Windows
 
-Для интерактивной установки скачайте `setup.ps1` из [релиза](https://github.com/come0th3r/mp-panel/releases/tag/v0.4.0) и выполните:
+Для интерактивной установки скачайте `setup.ps1` из [релиза](https://github.com/come0th3r/mp-panel/releases/tag/v0.4.1) и выполните:
 
 ```powershell
 .\setup.ps1 -Address 203.0.113.10 -User root

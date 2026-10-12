@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 umask 077
 
-MP_RELEASE_VERSION='v0.4.0'
+MP_RELEASE_VERSION='v0.4.1'
 REPOSITORY="${MP_REPOSITORY:-come0th3r/mp-panel}"
 DESTINATION='/opt/mp-panel'
 SOURCE=''
@@ -38,7 +38,7 @@ MP Panel: установка на Debian или Ubuntu (x86_64).
   sudo bash setup.sh --yes --contact admin@example.com --public-url http://192.168.1.10:8080 --agent-url https://192.168.1.10:8443
 
 Параметры:
-  --version TAG       Версия релиза, по умолчанию v0.4.0.
+  --version TAG       Версия релиза, по умолчанию v0.4.1.
   --repository NAME   Репозиторий GitHub в формате owner/name.
   --source PATH       Каталог исходников или архив .tar.gz вместо скачивания.
   --directory PATH    Каталог установки, по умолчанию /opt/mp-panel.
