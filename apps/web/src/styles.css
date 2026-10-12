@@ -324,3 +324,40 @@ details[open] > summary { margin-bottom: var(--space-md); }
   .file-manager-upload-list li > small { display: none; }
   .file-manager .breadcrumbs { gap: var(--space-xs); }
 }
+
+/* Modrinth: contextual search, project rows and inline installation. */
+.modrinth-catalog .catalog-server { display: flex; align-items: center; gap: var(--space-xl); flex-wrap: wrap; margin-bottom: var(--space-xl); }
+.modrinth-catalog .catalog-server .field { width: min(100%, 460px); margin: 0; }
+.modrinth-catalog .catalog-context { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md); font-size: 13px; padding-bottom: var(--space-xl); margin-bottom: var(--space-xl); border-bottom: 1px solid var(--mp-border); color: var(--mp-muted); }
+.modrinth-catalog .catalog-context strong { font-weight: 500; color: var(--mp-ink); }
+.modrinth-catalog .catalog-search { display: grid; grid-template-columns: minmax(180px, 1fr) auto minmax(190px, 240px); align-items: end; gap: var(--space-md); margin-bottom: var(--space-2xl); }
+.modrinth-catalog .catalog-search .field { margin: 0; }
+.modrinth-catalog .catalog-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xl); align-items: start; }
+.modrinth-catalog .catalog-layout.has-detail { grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.85fr); }
+.modrinth-catalog .catalog-results { min-width: 0; }
+.modrinth-catalog .catalog-projects { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--mp-border); }
+.modrinth-catalog .catalog-projects li { border-bottom: 1px solid var(--mp-border); }
+.modrinth-catalog .catalog-project { display: flex; width: 100%; gap: var(--space-lg); align-items: flex-start; padding: var(--space-xl) var(--space-md); border: 0; background: transparent; color: var(--mp-ink); text-align: left; border-radius: 6px; transition: background 160ms ease-out; }
+.modrinth-catalog .catalog-project:hover { background: var(--gray-3); }
+.modrinth-catalog .catalog-project[aria-pressed="true"] { background: var(--violet-3); }
+.modrinth-catalog .catalog-project > .rt-AvatarRoot { flex-shrink: 0; }
+.modrinth-catalog .catalog-project-text { display: flex; flex-direction: column; gap: var(--space-xs); min-width: 0; }
+.modrinth-catalog .catalog-project-text strong { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.modrinth-catalog .catalog-description { line-height: 1.5; color: var(--mp-muted); margin: var(--space-xs) 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.modrinth-catalog .catalog-downloads { display: inline-flex; align-items: center; gap: var(--space-xs); }
+.modrinth-catalog .catalog-pagination { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-md); margin-top: var(--space-xl); }
+.modrinth-catalog .catalog-detail { min-width: 0; padding: var(--space-xl); background: var(--mp-surface); border: 1px solid var(--mp-border); border-radius: 10px; }
+.modrinth-catalog .catalog-detail h2 { overflow-wrap: anywhere; }
+.modrinth-catalog .catalog-detail-description { color: var(--mp-muted); font-size: 13px; overflow-wrap: anywhere; }
+.modrinth-catalog .catalog-source { display: inline-flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-xl); font-size: 13px; }
+.modrinth-catalog .catalog-plan { list-style: none; padding: 0; margin: 0 0 var(--space-xl); }
+.modrinth-catalog .catalog-plan li { padding: var(--space-md) 0; border-bottom: 1px solid var(--mp-border); display: flex; flex-direction: column; gap: var(--space-xs); }
+.modrinth-catalog .catalog-plan li > div { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); }
+.modrinth-catalog .catalog-plan strong { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.modrinth-catalog .catalog-plan code { overflow-wrap: anywhere; }
+.modrinth-catalog .catalog-install { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-md); margin-top: var(--space-lg); }
+.modrinth-catalog .catalog-job { border-top: 1px solid var(--mp-border); margin-top: var(--space-xl); padding-top: var(--space-xl); }
+.modrinth-catalog .catalog-job p { font-size: 13px; margin: var(--space-md) 0; overflow-wrap: anywhere; }
+@media (max-width: 1050px) { .modrinth-catalog .catalog-layout.has-detail { grid-template-columns: minmax(0, 1fr); } .modrinth-catalog .catalog-detail { grid-row: 1; } }
+@media (max-width: 600px) { .modrinth-catalog .catalog-search { grid-template-columns: minmax(0, 1fr) auto; } .modrinth-catalog .catalog-search > .field:last-child { grid-column: 1 / -1; } .modrinth-catalog .catalog-project { padding: var(--space-lg) var(--space-xs); gap: var(--space-md); } }
+@media (prefers-reduced-motion: reduce) { .modrinth-catalog .catalog-project { transition: none; } }

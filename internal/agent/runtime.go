@@ -137,6 +137,12 @@ func (a *Agent) execute(ctx context.Context, c model.Command) (any, []string, er
 				err = nil
 			}
 			_ = os.Remove(filepath.Join(a.cfg.DataDir, "specs", c.ServerID+".ready"))
+			if err == nil {
+				manifestErr := os.Remove(filepath.Join(a.cfg.DataDir, "specs", "modrinth", c.ServerID+".json"))
+				if manifestErr != nil && !os.IsNotExist(manifestErr) {
+					err = manifestErr
+				}
+			}
 		}
 	case "logs":
 		var out string
@@ -186,6 +192,11 @@ func (a *Agent) execute(ctx context.Context, c model.Command) (any, []string, er
 		var upload fileUploadPayload
 		if err = json.Unmarshal(c.Payload, &upload); err == nil {
 			output, err = a.uploadFiles(ctx, dir, upload, &logs)
+		}
+	case "extension.install":
+		var extension extensionInstallPayload
+		if err = json.Unmarshal(c.Payload, &extension); err == nil {
+			output, err = a.installExtensions(ctx, c.ServerID, dir, extension, &logs)
 		}
 	case "file.delete_batch":
 		if err = a.requireStopped(ctx, c.ServerID); err != nil {

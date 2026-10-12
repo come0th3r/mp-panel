@@ -10,6 +10,10 @@ export type Build = { id: string; name: string; stable: boolean; recommended: bo
 export type FileEntry = { name: string; path: string; is_dir: boolean; size: number; modified?: string };
 export type Backup = { id: string; name: string; server_id: string; size: number; sha256: string; created_at: string; path: string };
 export type Upload = { id: string; name: string; size: number; sha256: string };
+export type ModrinthProject = { id: string; slug: string; title: string; description: string; icon_url?: string; author: string; downloads: number; categories: string[]; project_type: string; url: string };
+export type ModrinthSearch = { hits: ModrinthProject[]; total_hits: number; offset: number; limit: number };
+export type ModrinthVersion = { id: string; project_id: string; name: string; version_number: string; version_type: string; date_published: string };
+export type ModrinthPlan = { project_id: string; version_id: string; plan_hash: string; title: string; core: string; minecraft_version: string; files: { project_id: string; version_id: string; title: string; name: string; url: string; size: number; sha1: string; required: boolean }[]; warnings: string[] };
 export class APIError extends Error { code?: string; status: number; constructor(message: string, status: number, code?: string) { super(message); this.status = status; this.code = code; } }
 let csrf = '';
 export function rememberAuth(status: AuthStatus) { csrf = status.csrf_token || ''; }

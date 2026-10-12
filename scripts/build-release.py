@@ -10,12 +10,12 @@ import subprocess
 import tarfile
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--version', default='v0.3.4')
+parser.add_argument('--version', default='v0.4.0')
 parser.add_argument('--ref', default='HEAD')
 parser.add_argument('--output', default='release')
 args = parser.parse_args()
 if not re.fullmatch(r'v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', args.version):
-    parser.error('version must be a release tag such as v0.3.4')
+    parser.error('version must be a release tag such as v0.4.0')
 
 root = Path(__file__).resolve().parents[1]
 commit = subprocess.check_output(['git', 'rev-parse', '--verify', args.ref + '^{commit}'], cwd=root, text=True).strip()
@@ -31,7 +31,7 @@ with tarfile.open(fileobj=io.BytesIO(archive), mode='r:') as source:
             raise SystemExit('Unexpected source archive entry: ' + entry.name)
         if path.name == '.env' or path.suffix in {'.key', '.pem', '.p12', '.pfx'}:
             raise SystemExit('Secret file in source archive: ' + entry.name)
-        if path.parts[0] == 'docs' and entry.isfile() and entry.name not in {'docs/DEPLOYMENT.md', 'docs/GATEWAY.md', 'docs/API_CONTRACT.md', 'docs/GLOSSARY.md'}:
+        if path.parts[0] == 'docs' and entry.isfile() and entry.name not in {'docs/DEPLOYMENT.md', 'docs/GATEWAY.md', 'docs/API_CONTRACT.md', 'docs/GLOSSARY.md', 'docs/MODRINTH.md'}:
             raise SystemExit('Unexpected documentation file: ' + entry.name)
     installers = {name: source.extractfile('deploy/' + name).read() for name in ('setup.sh', 'setup.ps1')}
 

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Avatar, Button, Theme } from '@radix-ui/themes';
-import { DashboardIcon, GearIcon, QuestionMarkCircledIcon, DesktopIcon, CubeIcon, ActivityLogIcon, MoonIcon, SunIcon, ExitIcon } from '@radix-ui/react-icons';
+import { DashboardIcon, GearIcon, QuestionMarkCircledIcon, DesktopIcon, CubeIcon, ActivityLogIcon, MoonIcon, SunIcon, ExitIcon, ReaderIcon } from '@radix-ui/react-icons';
 import { api, rememberAuth } from './api';
 import type { AuthStatus } from './api';
 import { Auth } from './Auth';
@@ -18,8 +18,9 @@ const ServerWizard = lazy(() => import('./ServerWizard').then(module => ({ defau
 const ServerDetail = lazy(() => import('./ServerDetail').then(module => ({ default: module.ServerDetail })));
 const Settings = lazy(() => import('./Settings').then(module => ({ default: module.Settings })));
 const Help = lazy(() => import('./Settings').then(module => ({ default: module.Help })));
+const Modrinth = lazy(() => import('./Modrinth').then(module => ({ default: module.Modrinth })));
 
-const nav = [{ path: 'overview', label: 'Обзор', icon: DashboardIcon }, { path: 'servers', label: 'Серверы', icon: CubeIcon }, { path: 'nodes', label: 'Хосты', icon: DesktopIcon }, { path: 'jobs', label: 'Задания', icon: ActivityLogIcon }, { path: 'settings', label: 'Настройки', icon: GearIcon }, { path: 'help', label: 'Помощь', icon: QuestionMarkCircledIcon }];
+const nav = [{ path: 'overview', label: 'Обзор', icon: DashboardIcon }, { path: 'servers', label: 'Серверы', icon: CubeIcon }, { path: 'catalog', label: 'Каталог', icon: ReaderIcon }, { path: 'nodes', label: 'Хосты', icon: DesktopIcon }, { path: 'jobs', label: 'Задания', icon: ActivityLogIcon }, { path: 'settings', label: 'Настройки', icon: GearIcon }, { path: 'help', label: 'Помощь', icon: QuestionMarkCircledIcon }];
 export default function App() {
   const [auth, setAuth] = useState<AuthStatus>(); const [authError, setAuthError] = useState('');
   const [route, setRoute] = useState(location.hash.slice(1) || '/overview');
@@ -38,6 +39,7 @@ export default function App() {
   else if (section === 'nodes') page = operator ? <ServerList canManage={false} operator /> : parts[1] === 'new' && owner ? <AddNode /> : parts[1] && parts[2] === 'connect' && owner ? <AddNode id={parts[1]} /> : parts[1] ? <NodeDetail id={parts[1]} owner={owner} /> : <Nodes owner={owner} />;
   else if (section === 'servers') page = parts[1] === 'new' ? canManage ? <ServerWizard /> : <ServerList canManage={false} operator={operator} /> : parts[1] ? <ServerDetail id={parts[1]} user={auth?.user} /> : <ServerList canManage={canManage} operator={operator} />;
   else if (section === 'jobs') page = parts[1] ? <JobDetail id={parts[1]} /> : <Jobs />;
+  else if (section === 'catalog') page = <Modrinth serverID={parts[1]} user={auth?.user} />;
   else if (section === 'settings') page = <Settings user={auth?.user} onUserChange={loadAuth} />;
   else if (section === 'help') page = <Help />;
   else page = <div className="empty"><h1>Страница не найдена</h1><a href="#/overview">Вернуться к обзору</a></div>;

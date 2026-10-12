@@ -18,6 +18,7 @@ import (
 	"github.com/come0th3r/mp-panel/internal/catalog"
 	"github.com/come0th3r/mp-panel/internal/config"
 	"github.com/come0th3r/mp-panel/internal/model"
+	"github.com/come0th3r/mp-panel/internal/modrinth"
 	"github.com/come0th3r/mp-panel/internal/security"
 	"github.com/come0th3r/mp-panel/internal/store"
 	"github.com/come0th3r/mp-panel/internal/updates"
@@ -26,14 +27,15 @@ import (
 )
 
 type API struct {
-	Store   *store.Store
-	Config  config.Config
-	Vault   *security.Vault
-	CA      *security.CA
-	Catalog *catalog.Catalog
-	Updates *updates.Checker
-	mu      sync.Mutex
-	rates   map[string]*rateEntry
+	Store    *store.Store
+	Config   config.Config
+	Vault    *security.Vault
+	CA       *security.CA
+	Catalog  *catalog.Catalog
+	Modrinth *modrinth.Catalog
+	Updates  *updates.Checker
+	mu       sync.Mutex
+	rates    map[string]*rateEntry
 }
 type rateEntry struct {
 	start time.Time
@@ -53,7 +55,7 @@ func New(s *store.Store, c config.Config) (*API, error) {
 	if e != nil {
 		return nil, e
 	}
-	return &API{Store: s, Config: c, Vault: v, CA: ca, Catalog: catalog.New(c.UserAgent), Updates: updates.New(version.Current), rates: map[string]*rateEntry{}}, nil
+	return &API{Store: s, Config: c, Vault: v, CA: ca, Catalog: catalog.New(c.UserAgent), Modrinth: modrinth.New(c.UserAgent), Updates: updates.New(version.Current), rates: map[string]*rateEntry{}}, nil
 }
 func write(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -215,6 +217,10 @@ func (a *API) WebHandler() http.Handler {
 	m.HandleFunc("GET /api/v1/servers/{id}/extensions", a.require("read", a.extensions))
 	m.HandleFunc("POST /api/v1/servers/{id}/extensions", a.require("manage", a.addExtension))
 	m.HandleFunc("POST /api/v1/servers/{id}/extensions/toggle", a.require("manage", a.toggleExtension))
+	m.HandleFunc("GET /api/v1/servers/{id}/modrinth/search", a.require("read", a.modrinthSearch))
+	m.HandleFunc("GET /api/v1/servers/{id}/modrinth/projects/{project}/versions", a.require("read", a.modrinthVersions))
+	m.HandleFunc("POST /api/v1/servers/{id}/modrinth/plan", a.require("read", a.modrinthPlan))
+	m.HandleFunc("POST /api/v1/servers/{id}/modrinth/install", a.require("manage", a.modrinthInstall))
 	m.HandleFunc("GET /api/v1/servers/{id}/logs", a.require("read", a.logs))
 	m.HandleFunc("POST /api/v1/servers/{id}/console", a.require("operate", a.console))
 	m.HandleFunc("GET /api/v1/servers/{id}/console", a.require("read", a.consoleWS))
